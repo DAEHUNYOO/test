@@ -148,6 +148,33 @@ button:focus-visible { outline: 3px solid var(--yuzu); outline-offset: 2px; }
 .key.k-jump { background: var(--leaf); }
 .key.k-bell { background: #d99a12; }
 .tip { margin: 0; font-size: 14px; line-height: 1.5; color: rgba(59, 36, 20, 0.8); }
+.key.k-shop { background: #7b4fc9; }
+.stat.coin b { color: #a0521a; }
+.stat.buff { background: rgba(255, 236, 170, 0.9); }
+.hud-btn.shop-btn { width: auto; padding: 0 12px; background: #7b4fc9; color: #fff; }
+#shop {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  padding-block: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: rgba(40, 25, 60, 0.45);
+}
+.shop-card { width: min(680px, 100%); }
+.shop-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.shop-head h2 { margin: 2px 0 0; font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1; }
+.purse { font-family: var(--font-display); font-size: 15px; background: #fff; border-radius: 999px; padding: 6px 14px; white-space: nowrap; }
+.purse b { font-weight: 400; font-size: 22px; color: #a0521a; font-variant-numeric: tabular-nums; }
+.shop-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.item { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: center; background: #fff; border-radius: 16px; padding: 8px 10px; }
+.item.star { background: #fff4d1; box-shadow: inset 0 0 0 2px #f5b324; }
+.item canvas { width: 52px; height: 52px; }
+.item .name { font-family: var(--font-display); font-size: 17px; display: block; }
+.item .desc { font-size: 13px; line-height: 1.35; color: rgba(59, 36, 20, 0.75); display: block; }
+.buy { border: 0; border-radius: 12px; padding: 8px 10px; min-width: 72px; background: var(--yuzu); color: #fff; font-size: 15px; line-height: 1.1; }
+.buy small { display: block; font-size: 11px; opacity: 0.85; }
+.buy:disabled { background: #cfc6bd; color: #6f6259; cursor: default; }
+.btn-back { border: 0; border-radius: 14px; padding: 12px; background: var(--ink); color: #fff; font-size: 18px; }
 .result { display: flex; gap: 10px; }
 .result div { flex: 1; background: #fff; border-radius: 14px; padding: 10px 12px; }
 .result span { display: block; font-size: 12px; letter-spacing: 0.06em; opacity: 0.65; }
@@ -172,7 +199,10 @@ button:focus-visible { outline: 3px solid var(--yuzu); outline-offset: 2px; }
     <div class="stat"><span class="lbl">점수</span><b id="score">0</b></div>
     <div class="stat"><span class="lbl">레벨</span><b id="level">1</b></div>
     <div class="stat"><span class="lbl">친구</span><b id="friends">0</b></div>
+    <div class="stat coin"><span class="lbl">열매</span><b id="coins">0</b></div>
+    <div class="stat buff" id="buff" hidden><span class="lbl">단단한 이빨</span><b id="buff-t">0</b></div>
     <div class="hud-btns">
+      <button class="hud-btn shop-btn" id="btn-shop" aria-label="열매 상점 열기">상점</button>
       <button class="hud-btn" id="btn-full" aria-label="전체 화면" hidden>⛶</button>
       <button class="hud-btn" id="btn-sound" aria-label="소리 끄기">♪</button>
       <button class="hud-btn" id="btn-pause" aria-label="일시정지">II</button>
@@ -193,6 +223,21 @@ button:focus-visible { outline: 3px solid var(--yuzu); outline-offset: 2px; }
     </div>
   </div>
 
+  <div id="shop" hidden>
+    <div class="card shop-card">
+      <div class="shop-head">
+        <div>
+          <p class="eyebrow">사바나 장터</p>
+          <h2>열매 상점</h2>
+        </div>
+        <div class="purse">열매 <b id="shop-coins">0</b></div>
+      </div>
+      <p class="tip">먹이를 먹으면 점수의 1/10만큼, 사자를 쫓으면 3개, 사자왕을 이기면 25개의 열매를 얻어요.</p>
+      <div class="shop-list" id="shop-list"></div>
+      <button id="btn-shop-close" class="btn-back">게임으로 돌아가기</button>
+    </div>
+  </div>
+
   <div id="overlay">
     <div class="card">
       <p class="eyebrow" id="ov-eyebrow">사바나의 느긋한 미식가</p>
@@ -208,10 +253,11 @@ button:focus-visible { outline: 3px solid var(--yuzu); outline-offset: 2px; }
         <li><span class="key k-jump">점프</span>뛰어올라요. 길게 누를수록 높이 뛰어요 (▲도 점프)</li>
         <li><span class="key k-bite">물기</span>앞을 콱 물어요. 사자는 세 번 물면 도망가요</li>
         <li><span class="key k-bell">방울</span>반짝이는 우정 방울에 다가가면 친구 카피바라가 와서 30초 동안 같이 싸워요 (최대 2마리)</li>
+        <li><span class="key k-shop">상점</span>모은 열매로 사과, 단단한 이빨, 거대 카피바라를 부르는 아주 큰 우정벨을 사요</li>
       </ul>
       <p class="tip" id="ov-tip">사자가 몸을 웅크리고 <b>!</b>가 뜨면 곧 덤벼들어요. 점프로 피하거나 먼저 물어 주세요. 연못에 몸을 담그면 체력이 천천히 차올라요. 레벨 3마다 왕관 쓴 <b>사자왕</b>이 나타나요. 땅을 타고 오는 흙먼지 파동은 점프로 넘으세요!</p>
       <button id="btn-start">시작하기</button>
-      <p class="kbd">키보드: 방향키 이동 · Space 점프 · X 물기 · P 일시정지</p>
+      <p class="kbd">키보드: 방향키 이동 · Space 점프 · X 물기 · B 상점 · P 일시정지</p>
     </div>
   </div>
 </div>
@@ -219,7 +265,8 @@ button:focus-visible { outline: 3px solid var(--yuzu); outline-offset: 2px; }
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
-const app = $('app'), cvs = $('game'), ctx = cvs.getContext('2d');
+const app = $('app'), cvs = $('game');
+let ctx = cvs.getContext('2d');
 const G = 1600, WORLD_W = 4400, MAX_FOOD = 14, FOODS_PER_LEVEL = 8, MAX_FRIENDS = 2, FRIEND_LIFE = 30;
 
 /* ---------- Screen ---------- */
@@ -267,16 +314,16 @@ const FOOD_TOTAL_W = FOOD_TYPES.reduce((a, f) => a + f.w, 0);
 
 /* ---------- State ---------- */
 let state = 'title';
-let P, lions, foods, parts, texts, friends, bells, bellT, waves, bossPending, bossT, bossesBeaten;
+let P, lions, foods, parts, texts, friends, bells, bellT, waves, bossPending, bossT, bossesBeaten, coins;
 let score, eaten, level, beaten, spawnT, foodT, time = 0, shake = 0, camX = 0, oy = 300;
 let best = 0;
 try { best = +localStorage.getItem('capy-best') || 0; } catch (e) {}
 
 function resetGame() {
-  P = { hidden: false, ambush: false, x: 240, y: 0, vx: 0, vy: 0, face: 1, onGround: true, hp: 5, maxHp: 5, inv: 0, kb: 0,
+  P = { hidden: false, ambush: false, powerT: 0, x: 240, y: 0, vx: 0, vy: 0, face: 1, onGround: true, hp: 5, maxHp: 5, inv: 0, kb: 0,
         biteT: 0, biteCD: 0, coyote: 0, jumpBuf: 0, drop: 0, walk: 0, dead: false, deadT: 0, healT: 0, hitSet: new Set() };
   lions = []; foods = []; parts = []; texts = []; friends = []; waves = [];
-  bossPending = false; bossT = 0; bossesBeaten = 0;
+  bossPending = false; bossT = 0; bossesBeaten = 0; coins = 0;
   bells = [{ x: 900, y: 0, phase: 0 }]; bellT = 0;
   score = 0; eaten = 0; level = 1; beaten = 0; spawnT = 4; foodT = 0;
   for (let i = 0; i < MAX_FOOD; i++) spawnFood();
@@ -345,8 +392,20 @@ function spawnBell() {
 }
 
 // A friend capybara arrives, follows the hero and bites nearby lions.
+const smallFriends = () => friends.filter((f) => !f.giant && !f.dead).length;
+const hasGiant = () => friends.some((f) => f.giant && !f.dead);
+
+// 아주 큰 우정벨: a giant capybara that goes straight for the Lion King.
+function summonGiant() {
+  const x = Math.max(60, Math.min(WORLD_W - 60, P.x - P.face * 90));
+  friends.push({ giant: true, sc: 2, x, y: Math.min(P.y, 0) - 340, vx: 0, vy: 0, face: P.face, onGround: false, hp: 12, maxHp: 12,
+                 inv: 0, kb: 0, biteT: 0, biteCD: 0, drop: 0, walk: 0, dead: false, deadT: 0, life: 45, look: GIANT_LOOK, hitSet: new Set(), landed: false });
+  say(P.x, P.y - 110, '거대 카피바라 등장!', '#ffe082', 26);
+  sfx.summon(); setTimeout(() => sfx.level(), 250);
+}
+
 function summonFriend(b) {
-  const used = friends.map((f) => f.look);
+  const used = friends.filter((f) => !f.giant).map((f) => f.look);
   const look = FRIEND_LOOKS.find((l) => !used.includes(l)) || FRIEND_LOOKS[0];
   const x = Math.max(40, Math.min(WORLD_W - 40, P.x - P.face * 60));
   friends.push({ x, y: Math.min(P.y, 0) - 260, vx: 0, vy: 0, face: P.face, onGround: false, hp: 3, inv: 0, kb: 0,
@@ -366,7 +425,8 @@ function refreshButtons() { for (const b of buttons) b.classList.toggle('on', is
 
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); e.preventDefault(); return; }
-  if (e.code === 'Enter' && state !== 'play') { startGame(); e.preventDefault(); return; }
+  if (e.code === 'KeyB') { state === 'shop' ? closeShop() : openShop(); e.preventDefault(); return; }
+  if (e.code === 'Enter' && (state === 'title' || state === 'pause' || state === 'over')) { startGame(); e.preventDefault(); return; }
   const k = KEYMAP[e.code];
   if (!k) return;
   e.preventDefault();
@@ -490,15 +550,15 @@ function damagePlayer(fromX, dmg) {
 function hurtFriend(f, l) {
   f.hp--; f.inv = 1.2; f.kb = 0.3;
   const s = Math.sign(f.x - l.x) || -l.face;
-  f.vx = s * 320; f.vy = -320;
-  sfx.hurt(); burst(f.x, f.y - 24, '#ffffff', 6, 140);
-  say(f.x, f.y - 60, '끙!', '#ffab91');
+  f.vx = s * (f.giant ? 110 : 320); f.vy = f.giant ? -120 : -320;
+  sfx.hurt(); burst(f.x, f.y - 24 * (f.sc || 1), '#ffffff', 6, 140);
+  say(f.x, f.y - 60 * (f.sc || 1), f.giant ? '끄떡없다!' : '끙!', '#ffab91');
   if (l.state) { l.state = 'recover'; l.t = 0.8; l.cd = 1.4; l.vx *= 0.2; }
 }
 
 function hitLion(l, a = P, dmg = 1) {
   l.hp -= dmg; l.flash = 0.3;
-  if (dmg > 1) say(l.x, l.y - l.hh - 46, '기습!', '#b9f6ca', 22);
+  if (a === P && P.ambush) say(l.x, l.y - l.hh - 46, '기습!', '#b9f6ca', 22);
   if (!l.boss) { l.vx = a.face * 300; l.vy = -240; l.state = 'hurt'; l.t = 0.5; l.onGround = false; }
   else if (l.state !== 'pounce') { l.vx = a.face * 110; l.state = 'hurt'; l.t = 0.22; }
   shake = 6; buzz(30); sfx.chomp();
@@ -507,7 +567,7 @@ function hitLion(l, a = P, dmg = 1) {
   if (l.hp <= 0) {
     l.dying = true; l.t = 0.9; l.vx = a.face * 380; l.vy = -360;
     if (l.boss) { bossDefeated(l); return; }
-    score += 100; beaten++;
+    score += 100; beaten++; coins += 3;
     say(l.x, l.y - 80, a === P ? '사자를 쫓아냈다! +100' : '친구가 쫓아냈다! +100', '#ffd54f', 20);
     sfx.win();
   } else {
@@ -520,7 +580,8 @@ function hitLion(l, a = P, dmg = 1) {
 }
 
 function bossDefeated(l) {
-  l.t = 1.4; score += 500; beaten++; bossesBeaten++;
+  l.t = 1.4; score += 500; beaten++; bossesBeaten++; coins += 25;
+  say(l.x, l.y - 150, '열매 +25', '#ffcc80', 20);
   shake = 16; buzz(250);
   burst(l.x, l.y - 50, '#ffd54f', 30, 320);
   say(l.x, l.y - 120, '사자왕을 물리쳤다! +500', '#ffd54f', 26);
@@ -537,7 +598,7 @@ function bossDefeated(l) {
 
 function eat(f) {
   const t = f.type;
-  score += t.pts; eaten++;
+  score += t.pts; eaten++; coins += Math.ceil(t.pts / 10);
   let msg = `${t.name} +${t.pts}`;
   if (t.heal && P.hp < P.maxHp) { P.hp++; msg += ' ♥'; sfx.heal(); } else sfx.eat();
   say(f.x, f.y - 40, msg, '#ffffff');
@@ -580,7 +641,7 @@ function update(dt) {
     if (D && P.onGround && P.y < -1) { P.drop = 0.22; P.onGround = false; }
     P.drop -= dt;
 
-    P.biteCD -= dt; P.biteT -= dt;
+    P.biteCD -= dt; P.biteT -= dt; P.powerT -= dt;
     if (bitePressed && P.biteCD <= 0) {
       P.ambush = P.hidden;                     // biting out of a bush is a surprise attack
       P.biteT = 0.2; P.biteCD = 0.34; P.hitSet = new Set(); sfx.bite();
@@ -603,7 +664,7 @@ function update(dt) {
     const bx1 = P.face > 0 ? P.x + 8 : P.x - 68, bx2 = bx1 + 60, by1 = P.y - 50, by2 = P.y + 4;
     for (const l of lions) {
       if (l.dying || P.hitSet.has(l)) continue;
-      if (l.x + l.hw > bx1 && l.x - l.hw < bx2 && l.y - l.hh < by2 && l.y > by1) { P.hitSet.add(l); hitLion(l, P, P.ambush ? 2 : 1); }
+      if (l.x + l.hw > bx1 && l.x - l.hw < bx2 && l.y - l.hh < by2 && l.y > by1) { P.hitSet.add(l); hitLion(l, P, (P.ambush ? 2 : 1) * (P.powerT > 0 ? 2 : 1)); }
     }
   }
 
@@ -689,7 +750,7 @@ function update(dt) {
         Math.abs(P.x - l.x) < l.hw + 14 && l.y - l.hh + 2 < P.y && P.y - 32 < l.y) hurtPlayer(l);
     for (const f of friends) {
       if (f.dead || f.inv > 0 || l.state === 'hurt' || l.state === 'recover') continue;
-      if (Math.abs(f.x - l.x) < l.hw + 14 && l.y - l.hh + 2 < f.y && f.y - 32 < l.y) hurtFriend(f, l);
+      if (Math.abs(f.x - l.x) < l.hw + 14 * (f.sc || 1) && l.y - l.hh + 2 < f.y && f.y - 32 * (f.sc || 1) < l.y) hurtFriend(f, l);
     }
   }
   lions = lions.filter((l) => !(l.dying && l.t <= 0));
@@ -713,11 +774,11 @@ function update(dt) {
   // Friendship bells
   for (let i = bells.length - 1; i >= 0; i--) {
     const b = bells[i];
-    if (!P.dead && friends.length < MAX_FRIENDS && Math.abs(b.x - P.x) < 40 && Math.abs((b.y - 18) - (P.y - 20)) < 38) {
+    if (!P.dead && smallFriends() < MAX_FRIENDS && Math.abs(b.x - P.x) < 40 && Math.abs((b.y - 18) - (P.y - 20)) < 38) {
       summonFriend(b); bells.splice(i, 1); bellT = 14;
     }
   }
-  if (!bells.length && friends.length < MAX_FRIENDS) { bellT -= dt; if (bellT <= 0) spawnBell(); }
+  if (!bells.length && smallFriends() < MAX_FRIENDS) { bellT -= dt; if (bellT <= 0) spawnBell(); }
 
   updateFriends(dt);
 
@@ -740,28 +801,30 @@ function updateFriends(dt) {
     if (f.hp <= 0 || f.life <= 0 || P.dead) {
       f.dead = true; f.deadT = 0;
       puff(f.x, f.y); burst(f.x, f.y - 20, '#ffffff', 10, 160);
-      say(f.x, f.y - 60, f.hp <= 0 ? '친구가 지쳐서 돌아갔어요' : '친구: 또 불러 줘!', '#ffffff', 16);
+      say(f.x, f.y - 60 * (f.sc || 1), f.giant ? '거대 카피바라: 다음에 또 보자!' : f.hp <= 0 ? '친구가 지쳐서 돌아갔어요' : '친구: 또 불러 줘!', '#ffffff', 16);
       sfx.bye();
       return;
     }
     if (Math.abs(f.x - P.x) > VW) { f.x = P.x - P.face * 80; f.y = Math.min(P.y, 0) - 200; f.vy = 0; puff(f.x, P.y); }
 
-    // Pick the nearest lion near the friend; otherwise walk beside the hero.
-    let target = null, best = 340;
-    for (const l of lions) {
+    // Pick the nearest lion near the friend (the giant hunts the king first); otherwise walk beside the hero.
+    const sc = f.sc || 1;
+    let target = f.giant ? lions.find((l) => l.boss && !l.dying && Math.abs(l.x - f.x) < VW * 1.3) : null;
+    let best = f.giant ? 420 : 340;
+    if (!target) for (const l of lions) {
       if (l.dying) continue;
       const d = Math.abs(l.x - f.x);
-      if (d < best && Math.abs(l.y - f.y) < 160) { best = d; target = l; }
+      if (d < best && Math.abs(l.y - f.y) < 160 * sc) { best = d; target = l; }
     }
     let goalX, goalY;
     if (target) {
       goalY = target.y;
       f.face = Math.sign(target.x - f.x) || f.face;
-      goalX = target.x - f.face * (30 + target.hw);
-      if (Math.abs(target.x - f.x) < 60 + target.hw && f.biteCD <= 0) { f.biteT = 0.2; f.biteCD = 0.55; f.hitSet = new Set(); sfx.bite(); }
+      goalX = target.x - f.face * (30 * sc + target.hw);
+      if (Math.abs(target.x - f.x) < 60 * sc + target.hw && f.biteCD <= 0) { f.biteT = 0.2; f.biteCD = f.giant ? 0.95 : 0.55; f.hitSet = new Set(); sfx.bite(); }
     } else {
       goalY = P.y;
-      goalX = P.x - P.face * (58 + idx * 46);
+      goalX = P.x - P.face * (f.giant ? 120 : 58 + idx * 46);
     }
     const dx = goalX - f.x;
     const dir = Math.abs(dx) > 12 ? Math.sign(dx) : 0;
@@ -771,13 +834,14 @@ function updateFriends(dt) {
     if (f.onGround && goalY < f.y - 50 && Math.abs(dx) < 170) { f.vy = -660; f.onGround = false; puff(f.x, f.y); }
     if (f.onGround && f.y < -1 && goalY > f.y + 40) { f.drop = 0.22; f.onGround = false; }
     physics(f, dt, f.drop > 0);
-    if (f.onGround && Math.abs(f.vx) > 20) f.walk += dt * Math.abs(f.vx) / 28;
+    if (f.onGround && Math.abs(f.vx) > 20) f.walk += dt * Math.abs(f.vx) / (28 * sc);
+    if (f.giant && f.onGround && !f.landed) { f.landed = true; shake = 12; buzz(120); puff(f.x - 40, f.y); puff(f.x + 40, f.y); }
 
     if (f.biteT > 0) {
-      const bx1 = f.face > 0 ? f.x + 8 : f.x - 68, bx2 = bx1 + 60, by1 = f.y - 50, by2 = f.y + 4;
+      const bx1 = f.face > 0 ? f.x + 8 * sc : f.x - 68 * sc, bx2 = bx1 + 60 * sc, by1 = f.y - 50 * sc, by2 = f.y + 4;
       for (const l of lions) {
         if (l.dying || f.hitSet.has(l)) continue;
-        if (l.x + l.hw > bx1 && l.x - l.hw < bx2 && l.y - l.hh < by2 && l.y > by1) { f.hitSet.add(l); hitLion(l, f); }
+        if (l.x + l.hw > bx1 && l.x - l.hw < bx2 && l.y - l.hh < by2 && l.y > by1) { f.hitSet.add(l); hitLion(l, f, f.giant ? 2 : 1); }
       }
     }
   });
@@ -796,7 +860,8 @@ function updateCamera(dt) {
 let hudCache = '';
 function updateHud(force) {
   const alive = friends.filter((f) => !f.dead).length;
-  const key = `${P.hp}|${score}|${level}|${alive}`;
+  const buffT = P.powerT > 0 ? Math.ceil(P.powerT) : 0;
+  const key = `${P.hp}|${P.maxHp}|${score}|${level}|${alive}|${coins}|${buffT}`;
   if (!force && key === hudCache) return;
   hudCache = key;
   let h = '';
@@ -806,6 +871,9 @@ function updateHud(force) {
   $('score').textContent = score;
   $('level').textContent = level;
   $('friends').textContent = alive;
+  $('coins').textContent = coins;
+  $('buff').hidden = !buffT;
+  $('buff-t').textContent = `${buffT}초`;
 }
 
 function showOverlay(kind) {
@@ -859,7 +927,81 @@ function startGame() {
   $('overlay').hidden = true;
   clearInput();
 }
+/* ---------- Shop ---------- */
+const SHOP = [
+  { id: 'apple', name: '사과', desc: '하트 1개를 바로 채워요', price: 6,
+    why: () => (P.hp >= P.maxHp ? '하트 가득' : ''), buy: () => { P.hp++; } },
+  { id: 'bell', name: '우정 방울', desc: '친구 카피바라를 바로 불러요 (30초)', price: 12,
+    why: () => (smallFriends() >= MAX_FRIENDS ? '친구 가득' : ''), buy: () => summonFriend({ x: P.x, y: P.y }) },
+  { id: 'giant', name: '아주 큰 우정벨', desc: '두 배 크기의 거대 카피바라가 와서 사자왕부터 물어요. 물기 2배, 45초', price: 35, star: true,
+    why: () => (hasGiant() ? '이미 함께해요' : ''), buy: summonGiant },
+  { id: 'teeth', name: '단단한 이빨', desc: '20초 동안 내 물기 피해가 2배가 돼요', price: 15,
+    why: () => (P.powerT > 0 ? '사용 중' : ''), buy: () => { P.powerT = 20; } },
+  { id: 'heart', name: '하트 그릇', desc: '최대 하트가 1개 늘고 바로 채워져요 (최대 8개)', price: 25,
+    why: () => (P.maxHp >= 8 ? '최대치' : ''), buy: () => { P.maxHp++; P.hp++; } },
+];
+
+function drawShopIcon(id, canvas) {
+  const prev = ctx;
+  ctx = canvas.getContext('2d');
+  ctx.setTransform(2, 0, 0, 2, 0, 0); ctx.clearRect(0, 0, 52, 52);
+  ctx.translate(26, 28);
+  if (id === 'apple') drawFoodShape('apple', 0, 0);
+  else if (id === 'bell') drawBellShape(0, 0);
+  else if (id === 'giant') {
+    ctx.fillStyle = 'rgba(255, 213, 79, 0.5)'; circle(0, -2, 24);
+    ctx.scale(1.45, 1.45); drawBellShape(0, -1);
+  } else if (id === 'teeth') {
+    ctx.fillStyle = '#c96f7a'; rr(-18, -12, 36, 22, 10);
+    ctx.fillStyle = '#fff'; rr(-12, -10, 10, 13, 3); rr(2, -10, 10, 13, 3);
+    ctx.fillStyle = '#ffd54f'; circle(14, -14, 3); circle(-15, 8, 2);
+  } else if (id === 'heart') {
+    ctx.fillStyle = '#e5484d';
+    ctx.beginPath(); ctx.moveTo(0, 14); ctx.bezierCurveTo(-24, -2, -12, -22, 0, -10); ctx.bezierCurveTo(12, -22, 24, -2, 0, 14); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '14px Jua, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('+1', 0, 4);
+  }
+  ctx = prev;
+}
+
+function renderShop() {
+  $('shop-coins').textContent = coins;
+  const list = $('shop-list');
+  list.innerHTML = '';
+  for (const it of SHOP) {
+    const why = it.why() || (coins < it.price ? `${it.price - coins}개 부족` : '');
+    const row = document.createElement('div');
+    row.className = 'item' + (it.star ? ' star' : '');
+    row.innerHTML = `<canvas width="104" height="104" aria-hidden="true"></canvas>
+      <div><span class="name">${it.name}</span><span class="desc">${it.desc}</span></div>
+      <button class="buy" data-buy="${it.id}" ${why ? 'disabled' : ''}>열매 ${it.price}${why ? `<small>${why}</small>` : ''}</button>`;
+    list.appendChild(row);
+    drawShopIcon(it.id, row.querySelector('canvas'));
+  }
+}
+$('shop-list').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-buy]');
+  if (!b || b.disabled) return;
+  const it = SHOP.find((x) => x.id === b.dataset.buy);
+  if (!it || it.why() || coins < it.price) return;
+  coins -= it.price; it.buy();
+  ensureAudio(); sfx.eat();
+  updateHud(true); renderShop();
+});
+function openShop() {
+  if (state !== 'play' || P.dead) return;
+  state = 'shop'; clearInput(); renderShop();
+  $('shop').hidden = false;
+  setTimeout(() => $('btn-shop-close').focus({ preventScroll: true }), 30);
+}
+function closeShop() {
+  if (state !== 'shop') return;
+  $('shop').hidden = true; state = 'play'; clearInput();
+}
+$('btn-shop').addEventListener('click', () => (state === 'shop' ? closeShop() : openShop()));
+$('btn-shop-close').addEventListener('click', closeShop);
+
 function togglePause() {
+  if (state === 'shop') { closeShop(); return; }
   if (state === 'play') { state = 'pause'; showOverlay('pause'); }
   else if (state === 'pause') startGame();
 }
@@ -1049,6 +1191,10 @@ function drawHat(kind) {
     ctx.fillStyle = '#ff8fb8';
     for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; circle(7 + Math.cos(a) * 4.5, -17 + Math.sin(a) * 4.5, 3.4); }
     ctx.fillStyle = '#ffe066'; circle(7, -17, 2.6);
+  } else if (kind === 'stack') {                                        // three mandarins stacked up
+    ctx.fillStyle = '#ff9f1c'; circle(7, -17, 6.2); circle(7, -27.5, 5.4); circle(7, -36.5, 4.6);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; circle(5, -19, 1.6); circle(5, -29, 1.4); circle(5.5, -38, 1.2);
+    ctx.fillStyle = '#4caf50'; ellipse(9, -42, 4, 2, 0.3);
   } else if (kind === 'lemon') {
     ctx.fillStyle = '#ffe14d'; ellipse(7, -17, 7, 5.2);
     ctx.fillStyle = 'rgba(255,255,255,0.5)'; circle(5, -19, 1.6);
@@ -1056,6 +1202,7 @@ function drawHat(kind) {
   }
 }
 const HERO_LOOK = { body: '#a8774a', back: '#946540', dark: '#7d5232', jaw: '#865631', legs: '#6b4423', hat: 'orange' };
+const GIANT_LOOK = { body: '#b98552', back: '#a37243', dark: '#74502f', jaw: '#86603a', legs: '#5a3b20', hat: 'stack' };
 const FRIEND_LOOKS = [
   { body: '#c9a06a', back: '#b48a56', dark: '#8f6a40', jaw: '#9c7448', legs: '#7a5832', hat: 'flower' },
   { body: '#8e6440', back: '#7b5536', dark: '#5f4027', jaw: '#6e4b2e', legs: '#4f3520', hat: 'lemon' },
@@ -1065,9 +1212,10 @@ function drawCapy(c, pal) {
   if (c.inv > 0 && !c.dead && Math.floor(c.inv * 12) % 2 === 0) return;
   ctx.save();
   ctx.translate(c.x, c.y);
-  ctx.fillStyle = 'rgba(0,0,0,0.15)'; ellipse(0, 0, 30, 4);
+  const csc = c.sc || 1;
+  ctx.fillStyle = 'rgba(0,0,0,0.15)'; ellipse(0, 0, 30 * csc, 4 * csc);
   if (c.dead) { ctx.translate(0, -22); ctx.rotate(Math.min(1, c.deadT * 3) * Math.PI); ctx.translate(0, 22); }
-  ctx.scale(c.face, 1);
+  ctx.scale(c.face * csc, csc);
   const moving = c.onGround && Math.abs(c.vx) > 20;
   const w = moving ? Math.sin(c.walk) * 4 : 0;
   const bob = moving ? -Math.abs(Math.sin(c.walk)) * 1.6 : Math.sin(time * 2) * 0.6;
@@ -1119,6 +1267,12 @@ function drawFriend(f) {
   if (f.life < 5 && Math.floor(f.life * 6) % 2 === 0) ctx.globalAlpha = 0.5;
   drawCapy(f, f.look);
   ctx.globalAlpha = 1;
+  if (f.giant) {
+    const y = f.y - 104;
+    ctx.fillStyle = 'rgba(59,36,20,0.55)'; rr(f.x - 30, y, 60, 7, 3.5);
+    ctx.fillStyle = '#ff8fab'; rr(f.x - 29, y + 1, 58 * Math.max(0, f.hp / f.maxHp), 5, 2.5);
+    return;
+  }
   for (let i = 0; i < 3; i++) {
     ctx.fillStyle = i < f.hp ? '#ff8fab' : 'rgba(0,0,0,0.2)';
     circle(f.x - 10 + i * 10, f.y - 62, 3.2);
@@ -1263,7 +1417,7 @@ function drawBellHint() {
 }
 
 function drawHints() {
-  if (friends.length < MAX_FRIENDS) drawBellHint();
+  if (smallFriends() < MAX_FRIENDS) drawBellHint();
   const visible = (x) => x > camX && x < camX + VW;
   if (!foods.some((f) => visible(f.x))) {
     let near = null;
@@ -1307,6 +1461,10 @@ function render() {
   for (const l of lions) drawLion(l);
   drawWaves();
   for (const f of friends) drawFriend(f);
+  if (P.powerT > 0 && !P.dead) {
+    ctx.fillStyle = `rgba(255, 213, 79, ${0.5 + Math.sin(time * 10) * 0.3})`;
+    for (let i = 0; i < 4; i++) { const a = time * 3 + i * 1.57; circle(P.x + P.face * 34 + Math.cos(a) * 16, P.y - 30 + Math.sin(a) * 12, 2.2); }
+  }
   drawCapy(P, HERO_LOOK);
   drawBushes();
   drawPondFront();

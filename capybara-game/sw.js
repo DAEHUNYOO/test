@@ -1,5 +1,5 @@
 // Offline cache: after the first visit the game runs without a network connection.
-const CACHE = 'capybara-v4';
+const CACHE = 'capybara-v5';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
