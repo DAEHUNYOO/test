@@ -204,7 +204,7 @@ button:focus-visible { outline: 3px solid var(--yuzu); outline-offset: 2px; }
       </div>
       <ul class="howto" id="ov-howto">
         <li><span class="key">◀ ▶</span>걸어 다니며 풀, 귤, 옥수수, 수박을 찾아 먹어요</li>
-        <li><span class="key">▼</span>발판 위에서 누르면 아래로 내려가요</li>
+        <li><span class="key">▼</span>발판 위에서 누르면 아래로 내려가요. 나무 덤불 앞에서 꾹 누르면 숨어요 (숨어서 물면 기습 2배!)</li>
         <li><span class="key k-jump">점프</span>뛰어올라요. 길게 누를수록 높이 뛰어요 (▲도 점프)</li>
         <li><span class="key k-bite">물기</span>앞을 콱 물어요. 사자는 세 번 물면 도망가요</li>
         <li><span class="key k-bell">방울</span>반짝이는 우정 방울에 다가가면 친구 카피바라가 와서 30초 동안 같이 싸워요 (최대 2마리)</li>
@@ -252,6 +252,8 @@ const ponds = [{ x: 1320, w: 170 }, { x: 3050, w: 190 }];
     x += w + 220 + r() * 300;
   }
 })();
+const trees = [380, 1050, 1760, 2360, 2820, 3520, 4060].map((x) => ({ x }));
+const treeAt = (x) => trees.find((t) => Math.abs(t.x - x) < 46);
 const inPond = (x) => ponds.some((p) => x > p.x + 10 && x < p.x + p.w - 10);
 
 const FOOD_TYPES = [
@@ -271,7 +273,7 @@ let best = 0;
 try { best = +localStorage.getItem('capy-best') || 0; } catch (e) {}
 
 function resetGame() {
-  P = { x: 240, y: 0, vx: 0, vy: 0, face: 1, onGround: true, hp: 5, maxHp: 5, inv: 0, kb: 0,
+  P = { hidden: false, ambush: false, x: 240, y: 0, vx: 0, vy: 0, face: 1, onGround: true, hp: 5, maxHp: 5, inv: 0, kb: 0,
         biteT: 0, biteCD: 0, coyote: 0, jumpBuf: 0, drop: 0, walk: 0, dead: false, deadT: 0, healT: 0, hitSet: new Set() };
   lions = []; foods = []; parts = []; texts = []; friends = []; waves = [];
   bossPending = false; bossT = 0; bossesBeaten = 0;
@@ -292,7 +294,7 @@ function spawnFood() {
       x = p.x + 20 + Math.random() * (p.w - 40); y = p.y;
     } else {
       x = 80 + Math.random() * (WORLD_W - 160);
-      if (inPond(x)) continue;
+      if (inPond(x) || treeAt(x)) continue;
     }
     if (P && Math.abs(x - P.x) < 220) continue;
     if (foods.some((f) => Math.abs(f.x - x) < 60 && f.y === y)) continue;
@@ -431,6 +433,7 @@ const sfx = {
   level: () => [523, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.14, 'triangle', 0.08, i * 0.09)),
   over: () => [392, 330, 262].forEach((f, i) => tone(f, f * 0.98, 0.22, 'triangle', 0.08, i * 0.18)),
   summon: () => [659, 784, 988, 1319].forEach((f, i) => tone(f, f * 1.02, 0.18, 'sine', 0.08, i * 0.07)),
+  hide: () => { tone(900, 500, 0.08, 'triangle', 0.04); tone(700, 400, 0.08, 'triangle', 0.03, 0.06); },
   bye: () => [784, 659].forEach((f, i) => tone(f, f, 0.15, 'sine', 0.06, i * 0.1)),
 };
 function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
@@ -493,8 +496,9 @@ function hurtFriend(f, l) {
   if (l.state) { l.state = 'recover'; l.t = 0.8; l.cd = 1.4; l.vx *= 0.2; }
 }
 
-function hitLion(l, a = P) {
-  l.hp--; l.flash = 0.3;
+function hitLion(l, a = P, dmg = 1) {
+  l.hp -= dmg; l.flash = 0.3;
+  if (dmg > 1) say(l.x, l.y - l.hh - 46, '기습!', '#b9f6ca', 22);
   if (!l.boss) { l.vx = a.face * 300; l.vy = -240; l.state = 'hurt'; l.t = 0.5; l.onGround = false; }
   else if (l.state !== 'pounce') { l.vx = a.face * 110; l.state = 'hurt'; l.t = 0.22; }
   shake = 6; buzz(30); sfx.chomp();
@@ -556,7 +560,11 @@ function update(dt) {
 
   // Player
   if (!P.dead) {
-    const dir = (R ? 1 : 0) - (L ? 1 : 0);
+    // Hold ▼ in front of a bush on the ground to hide in it.
+    const wasHidden = P.hidden;
+    P.hidden = D && P.onGround && P.y > -1 && !!treeAt(P.x) && P.kb <= 0;
+    if (P.hidden && !wasHidden) { say(P.x, P.y - 70, '쉿…', '#e8f5e9', 18); sfx.hide(); }
+    const dir = P.hidden ? 0 : (R ? 1 : 0) - (L ? 1 : 0);
     if (dir && P.kb <= 0) P.face = dir;
     const wading = inPond(P.x) && P.y > -1;
     const maxV = wading ? 150 : 235;
@@ -573,7 +581,10 @@ function update(dt) {
     P.drop -= dt;
 
     P.biteCD -= dt; P.biteT -= dt;
-    if (bitePressed && P.biteCD <= 0) { P.biteT = 0.2; P.biteCD = 0.34; P.hitSet = new Set(); sfx.bite(); }
+    if (bitePressed && P.biteCD <= 0) {
+      P.ambush = P.hidden;                     // biting out of a bush is a surprise attack
+      P.biteT = 0.2; P.biteCD = 0.34; P.hitSet = new Set(); sfx.bite();
+    }
 
     if (wading && P.onGround && P.hp < P.maxHp) {
       P.healT += dt;
@@ -592,7 +603,7 @@ function update(dt) {
     const bx1 = P.face > 0 ? P.x + 8 : P.x - 68, bx2 = bx1 + 60, by1 = P.y - 50, by2 = P.y + 4;
     for (const l of lions) {
       if (l.dying || P.hitSet.has(l)) continue;
-      if (l.x + l.hw > bx1 && l.x - l.hw < bx2 && l.y - l.hh < by2 && l.y > by1) { P.hitSet.add(l); hitLion(l); }
+      if (l.x + l.hw > bx1 && l.x - l.hw < bx2 && l.y - l.hh < by2 && l.y > by1) { P.hitSet.add(l); hitLion(l, P, P.ambush ? 2 : 1); }
     }
   }
 
@@ -612,12 +623,17 @@ function update(dt) {
       case 'patrol':
         l.t -= dt; l.vx = l.dir * 55; l.face = l.dir;
         if (l.t <= 0) { l.dir *= -1; l.t = 1.5 + Math.random() * 2; }
-        if (!P.dead && adx < 360 && Math.abs(dy) < 170) {
+        if (!P.dead && !(P.hidden && !l.boss) && adx < 360 && Math.abs(dy) < 170) {
           l.state = 'chase';
           if (!l.roared) { l.roared = true; sfx.roar(); say(l.x, l.y - 74, '어흥!', '#ffb74d', 20); }
         }
         break;
       case 'chase': {
+        if (P.hidden && !l.boss) {
+          l.state = 'patrol'; l.t = 1.5 + Math.random(); l.dir = Math.random() < 0.5 ? -1 : 1; l.roared = false;
+          say(l.x, l.y - l.hh - 22, '어디 갔지?', '#ffffff', 16);
+          break;
+        }
         l.face = Math.sign(dx) || 1;
         const v = l.boss ? (l.enraged ? 175 : 130) : spd;
         l.vx += (l.face * v - l.vx) * Math.min(1, dt * 5);
@@ -669,7 +685,7 @@ function update(dt) {
     }
     physics(l, dt, false);
     if (l.onGround && Math.abs(l.vx) > 15) l.walk += dt * Math.abs(l.vx) / 26;
-    if (!P.dead && P.inv <= 0 && l.state !== 'hurt' && l.state !== 'recover' &&
+    if (!P.dead && P.inv <= 0 && !(P.hidden && !l.boss) && l.state !== 'hurt' && l.state !== 'recover' &&
         Math.abs(P.x - l.x) < l.hw + 14 && l.y - l.hh + 2 < P.y && P.y - 32 < l.y) hurtPlayer(l);
     for (const f of friends) {
       if (f.dead || f.inv > 0 || l.state === 'hurt' || l.state === 'recover') continue;
@@ -947,6 +963,43 @@ function drawPlatforms() {
     ctx.fillStyle = '#8bc34a'; rr(p.x - 4, p.y - 5, p.w + 8, 11, 6);
     ctx.fillStyle = '#76a83c';
     for (let x = p.x + 6; x < p.x + p.w - 6; x += 18) { ctx.beginPath(); ctx.moveTo(x, p.y - 4); ctx.lineTo(x + 3, p.y - 11); ctx.lineTo(x + 6, p.y - 4); ctx.fill(); }
+  }
+}
+
+function drawTrees() {
+  for (const t of trees) {
+    if (t.x < camX - 120 || t.x > camX + VW + 120) continue;
+    ctx.fillStyle = '#6d4a2b'; rr(t.x - 9, -150, 18, 150, 6);
+    ctx.strokeStyle = '#6d4a2b'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(t.x, -100); ctx.lineTo(t.x + 34, -132); ctx.moveTo(t.x, -115); ctx.lineTo(t.x - 30, -142); ctx.stroke();
+    ctx.fillStyle = '#3e7d34';
+    for (const [dx, dy, r] of [[-38, -150, 34], [36, -146, 32], [0, -176, 40], [-14, -140, 30], [20, -128, 26]]) circle(t.x + dx, dy, r);
+    ctx.fillStyle = '#4f9a3f';
+    for (const [dx, dy, r] of [[-30, -160, 18], [28, -158, 16], [4, -190, 20]]) circle(t.x + dx, dy, r);
+  }
+}
+// The leafy bush at each tree's foot is drawn in front of the animals.
+function drawBushes() {
+  for (const t of trees) {
+    if (t.x < camX - 120 || t.x > camX + VW + 120) continue;
+    const near = Math.abs(P.x - t.x) < 70 && P.y > -60;
+    const rustle = P.hidden && treeAt(P.x) === t ? Math.sin(time * 18) * 1.5 : 0;
+    ctx.globalAlpha = near && !P.hidden ? 0.55 : 1;
+    ctx.fillStyle = '#3f8a35';
+    for (const [dx, dy, r] of [[-40, -16, 22], [40, -16, 22], [-20, -30, 26], [20, -30, 26], [0, -40, 26]]) circle(t.x + dx + rustle, dy, r);
+    ctx.fillStyle = '#56a845';
+    for (const [dx, dy, r] of [[-26, -36, 11], [16, -46, 12], [34, -26, 9], [-6, -22, 10]]) circle(t.x + dx + rustle, dy, r);
+    ctx.fillStyle = '#ff8fb8'; circle(t.x - 30, -24, 3); circle(t.x + 26, -40, 3); circle(t.x + 6, -14, 3);
+    ctx.globalAlpha = 1;
+    if (P.hidden && treeAt(P.x) === t) {                  // two eyes peeking out of the leaves
+      const ex = P.x + P.face * 10;
+      ctx.fillStyle = '#fff'; ellipse(ex - 6, -30, 4, 3); ellipse(ex + 6, -30, 4, 3);
+      ctx.fillStyle = '#2b1a10'; circle(ex - 6 + P.face, -30, 1.8); circle(ex + 6 + P.face, -30, 1.8);
+    } else if (near && P.onGround && P.y > -1 && state === 'play' && !P.dead) {
+      ctx.font = '13px Jua, sans-serif'; ctx.textAlign = 'center';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(59,36,20,0.8)'; ctx.strokeText('▼ 꾹 눌러 숨기', t.x, -72);
+      ctx.fillStyle = '#e8f5e9'; ctx.fillText('▼ 꾹 눌러 숨기', t.x, -72);
+    }
   }
 }
 
@@ -1247,6 +1300,7 @@ function render() {
   ctx.save();
   ctx.translate(-camX + (Math.random() - 0.5) * shake, oy + (Math.random() - 0.5) * shake);
   drawGround();
+  drawTrees();
   drawPlatforms();
   drawFoods();
   drawBells();
@@ -1254,6 +1308,7 @@ function render() {
   drawWaves();
   for (const f of friends) drawFriend(f);
   drawCapy(P, HERO_LOOK);
+  drawBushes();
   drawPondFront();
   drawEffects();
   ctx.restore();
