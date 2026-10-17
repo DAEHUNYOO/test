@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#7ec8e3"/>
+  <circle cx="400" cy="120" r="56" fill="#fff6cf"/>
+  <rect y="370" width="512" height="142" fill="#9b7350"/>
+  <rect y="358" width="512" height="28" fill="#7cb342"/>
+  <!-- capybara head, facing right -->
+  <rect x="96" y="176" width="300" height="196" rx="84" fill="#a8774a"/>
+  <rect x="296" y="214" width="124" height="148" rx="56" fill="#7d5232"/>
+  <circle cx="390" cy="262" r="11" fill="#2b1a10"/>
+  <path d="M222 252 a24 24 0 0 0 48 0 z" fill="#2b1a10"/>
+  <rect x="214" y="248" width="64" height="9" rx="4" fill="#2b1a10"/>
+  <circle cx="150" cy="180" r="34" fill="#7d5232"/>
+  <!-- mandarin on top -->
+  <circle cx="226" cy="138" r="52" fill="#ff9f1c"/>
+  <circle cx="210" cy="122" r="13" fill="#ffffff" opacity="0.5"/>
+  <ellipse cx="248" cy="84" rx="30" ry="14" transform="rotate(20 248 84)" fill="#4caf50"/>
+</svg>

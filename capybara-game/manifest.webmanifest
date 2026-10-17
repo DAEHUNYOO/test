@@ -1,0 +1,17 @@
+{
+  "name": "카피바라 먹이 탐험",
+  "short_name": "카피바라",
+  "description": "카피바라가 사바나를 돌아다니며 먹이를 찾고 사자를 물어 쫓아내는 게임",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#7ec8e3",
+  "theme_color": "#7ec8e3",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
